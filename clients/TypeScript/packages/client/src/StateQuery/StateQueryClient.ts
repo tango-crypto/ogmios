@@ -9,6 +9,7 @@ import {
   TxIn
 } from '@cardano-ogmios/schema'
 import { InteractionContext } from '../Connection'
+import { loadLogger, Logger } from '../logger'
 import { baseRequest } from '../Request'
 import {
   AcquirePointNotOnChainError,
@@ -66,22 +67,26 @@ export interface StateQueryClient {
  */
 export const createStateQueryClient = async (
   context: InteractionContext,
-  options?: { point?: PointOrOrigin }
+  options?: { logger?: Logger, point?: PointOrOrigin }
 ): Promise<StateQueryClient> => {
+  const logger = loadLogger('createStateQueryClient', options?.logger)
+  logger.debug('Init')
   const { socket } = context
   return new Promise((resolve, reject) => {
     const createClient = () => resolve({
       context,
       async acquire (point : PointOrOrigin) : Promise<StateQueryClient> {
-        const client = await createStateQueryClient(context, { point })
+        const client = await createStateQueryClient(context, { logger: options?.logger, point })
         return Object.assign(this, client)
       },
       async release () : Promise<void> {
+        logger.info('Releasing point')
         ensureSocketIsOpen(socket)
         const requestId = nanoid(5)
         return new Promise((resolve, reject) => {
           socket.once('message', (message: string) => {
             const response: Ogmios['ReleaseResponse'] = safeJSON.parse(message)
+            logger.debug('response', response)
             if (response.reflection.requestId !== requestId) { return }
             if (response.result === 'Released') {
               resolve()
@@ -98,6 +103,7 @@ export const createStateQueryClient = async (
         })
       },
       shutdown: () => {
+        logger.info('Shutting down StateQueryClient...')
         ensureSocketIsOpen(socket)
         return new Promise((resolve, reject) => {
           socket.once('close', () => resolve())
@@ -171,6 +177,7 @@ export const createStateQueryClient = async (
       socket.once('error', e => reject(new UnknownResultError(e)))
       socket.once('message', (message: string) => {
         const response: Ogmios['AcquireResponse'] = safeJSON.parse(message)
+        logger.debug('response', response)
         if (response.reflection.requestId !== requestId) { return }
         if ('AcquireSuccess' in response.result) {
           createClient()

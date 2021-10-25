@@ -7,8 +7,10 @@ import {
 import { InteractionContext, StateQuery } from '../../src'
 import { dummyInteractionContext } from '../util'
 import delay from 'delay'
+import { dummyLogger } from 'ts-log'
 
 describe('Local state queries', () => {
+
   describe('StateQueryClient', () => {
     let context : InteractionContext
     let client : StateQuery.StateQueryClient
@@ -129,6 +131,15 @@ describe('Local state queries', () => {
       expect(eraStart).toBeDefined()
       expect(ledgerTip).toBeDefined()
     })
+  })
+
+  it('exposes an abstract logger compatible with console', async () => {
+    const spy = jest.spyOn(dummyLogger, 'info')
+    const context = await dummyInteractionContext()
+    const client = await StateQuery.createStateQueryClient(context, { logger: dummyLogger })
+    await client.shutdown()
+    expect(spy).toHaveBeenCalled()
+    spy.mockClear()
   })
 
   describe('Queries', () => {

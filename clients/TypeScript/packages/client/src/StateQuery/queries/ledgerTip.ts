@@ -1,6 +1,7 @@
 import { EraMismatch, Hash16, Ogmios, PointOrOrigin, Slot } from '@cardano-ogmios/schema'
 import { EraMismatchError, QueryUnavailableInCurrentEraError, UnknownResultError } from '../../errors'
 import { InteractionContext } from '../../Connection'
+import { Logger } from '../../logger'
 import { Query } from '../Query'
 
 const isEraMismatch = (result: Ogmios['QueryResponse[ledgerTip]']['result']): result is EraMismatch =>
@@ -14,7 +15,12 @@ const isNonOriginPoint = (result: {slot: Slot, hash: Hash16}): result is {slot: 
  *
  * @category StateQuery
  */
-export const ledgerTip = (context: InteractionContext): Promise<PointOrOrigin> =>
+export const ledgerTip = (
+  context: InteractionContext,
+  options?: {
+    logger: Logger
+  }
+): Promise<PointOrOrigin> =>
   Query<
     Ogmios['Query'],
     Ogmios['QueryResponse[ledgerTip]'],
@@ -40,4 +46,4 @@ export const ledgerTip = (context: InteractionContext): Promise<PointOrOrigin> =
         reject(new UnknownResultError(response.result))
       }
     }
-  }, context)
+  }, context, { logger: options?.logger })

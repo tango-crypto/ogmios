@@ -8,6 +8,7 @@ import {
   InteractionContext
 } from '../../src'
 import delay from 'delay'
+import { dummyLogger } from 'ts-log'
 import {
   Block,
   BlockAllegra,
@@ -80,6 +81,15 @@ describe('ChainSync', () => {
     await client.shutdown()
     const run = () => client.startSync(['origin'], 3)
     await expect(run).rejects
+  })
+
+  it('exposes an abstract logger compatible with console', async () => {
+    const spy = jest.spyOn(dummyLogger, 'info')
+    const context = await dummyInteractionContext()
+    const client = await createChainSyncClient(context, stubHandlers, { logger: dummyLogger })
+    await client.shutdown()
+    expect(spy).toHaveBeenCalled()
+    spy.mockClear()
   })
 
   describe('startSync', () => {

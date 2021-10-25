@@ -1,5 +1,6 @@
 import { InteractionContext, TxSubmission } from '../../src'
 import { dummyInteractionContext } from '../util'
+import { dummyLogger } from 'ts-log'
 
 describe('TxSubmission', () => {
   describe('TxSubmissionClient', () => {
@@ -28,6 +29,14 @@ describe('TxSubmission', () => {
       } catch (error) {
         expect(error.code).toBe('ECONNREFUSED')
       }
+    })
+    it('exposes an abstract logger compatible with console', async () => {
+      const spy = jest.spyOn(dummyLogger, 'info')
+      const context = await dummyInteractionContext()
+      const client = await TxSubmission.createTxSubmissionClient(context, { logger: dummyLogger })
+      await client.shutdown()
+      expect(spy).toHaveBeenCalled()
+      spy.mockClear()
     })
   })
   describe('submitTx', () => {

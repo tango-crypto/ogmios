@@ -1,4 +1,5 @@
 import { InteractionContext } from '../Connection'
+import { loadLogger, Logger } from '../logger'
 import { ensureSocketIsOpen } from '../util'
 import { submitTx } from './submitTx'
 
@@ -19,18 +20,26 @@ export interface TxSubmissionClient {
  * @category Constructor
  **/
 export const createTxSubmissionClient = async (
-  context: InteractionContext
+  context: InteractionContext,
+  options?: { logger?: Logger }
 ): Promise<TxSubmissionClient> => {
+  const logger = loadLogger('createTxSubmissionClient', options?.logger)
+  logger.debug('Init')
   const { socket } = context
   return Promise.resolve({
     context,
     submitTx: (bytes) => {
+      logger.debug('submitting tx', { bytes })
       ensureSocketIsOpen(socket)
       return submitTx(context, bytes)
     },
     shutdown: () => new Promise(resolve => {
+      logger.info('Shutting down TxSubmissionClient...')
       ensureSocketIsOpen(socket)
-      socket.once('close', resolve)
+      socket.once('close', () => {
+        logger.info('TxSubmissionClient socket closed')
+        return resolve()
+      })
       socket.close()
     })
   } as TxSubmissionClient)

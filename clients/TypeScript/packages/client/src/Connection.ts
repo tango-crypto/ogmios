@@ -1,6 +1,7 @@
 import { WebSocket, CloseEvent } from './IsomorphicWebSocket'
 import { getServerHealth } from './ServerHealth'
 import { ServerNotReady } from './errors'
+import { loadLogger, Logger } from './logger'
 
 /**
  * Connection configuration parameters. Use `tls: true` to create a `wss://` using TLS
@@ -57,7 +58,13 @@ export type WebSocketCloseHandler = (
 ) => void
 
 /** @category Constructor */
-export const createConnectionObject = (config?: ConnectionConfig): Connection => {
+export const createConnectionObject = (
+  config?: ConnectionConfig,
+  options?: {
+    logger?: Logger
+  }
+): Connection => {
+  const logger = loadLogger('createConnectionObject', options?.logger)
   const _128MB = 128 * 1024 * 1024
   const base = {
     host: config?.host ?? 'localhost',
@@ -66,13 +73,16 @@ export const createConnectionObject = (config?: ConnectionConfig): Connection =>
     maxPayload: config?.maxPayload ?? _128MB
   }
   const hostAndPort = `${base.host}:${base.port}`
-  return {
+  const connection = {
     ...base,
     address: {
       http: `${base.tls ? 'https' : 'http'}://${hostAndPort}`,
       webSocket: `${base.tls ? 'wss' : 'ws'}://${hostAndPort}`
     }
   }
+  logger.debug({ connection })
+
+  return connection
 }
 
 /** @category Constructor */
@@ -82,9 +92,13 @@ export const createInteractionContext = async (
   options?: {
     connection?: ConnectionConfig
     interactionType?: InteractionType,
+    logger?: Logger
   }): Promise<InteractionContext> => {
-  const connection = createConnectionObject(options?.connection)
-  const health = await getServerHealth(connection)
+  const logger = loadLogger('createInteractionContext', options?.logger)
+  const connection = createConnectionObject(options?.connection, { logger: options?.logger })
+
+  const health = await getServerHealth(connection, { logger: options?.logger })
+
   return new Promise((resolve, reject) => {
     if (health.lastTipUpdate === null) {
       return reject(new ServerNotReady(health))
@@ -94,6 +108,8 @@ export const createInteractionContext = async (
     const closeOnCompletion = (options?.interactionType || 'LongRunning') === 'OneTime'
     const afterEach = (cb: () => void) => {
       if (closeOnCompletion) {
+        logger.debug('Interaction complete, closing socket...')
+
         socket.once('close', cb)
         socket.close()
       } else {
@@ -107,10 +123,14 @@ export const createInteractionContext = async (
     }
     socket.on('error', onInitialError)
     socket.once('close', (_code: number, reason: string) => {
+      logger.debug('Socket closed, removing listeners...')
+
       socket.removeAllListeners()
       reject(new Error(reason))
     })
     socket.on('open', async () => {
+      logger.debug('Socket open, adding listeners...')
+
       socket.removeListener('error', onInitialError)
       socket.on('error', errorHandler)
       socket.on('close', closeHandler)
