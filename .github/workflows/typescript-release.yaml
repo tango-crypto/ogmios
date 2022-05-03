@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./clients/TypeScript/packages/client
+        working-directory: clients/TypeScript
     steps:
       - uses: actions/checkout@v1
       - name: Setup node
@@ -26,4 +26,5 @@ jobs:
         with:
           token: ${{ secrets.PACKAGES_PAT }}
           registry: https://npm.pkg.github.com/
+          package: clients/TypeScript/packages/client/package.json
           check-version: true
