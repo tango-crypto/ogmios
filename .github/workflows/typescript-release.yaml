@@ -8,17 +8,22 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./clients/TypeScript
+        working-directory: ./clients/TypeScript/packages/client
     steps:
-      - uses: actions/checkout@v3
-      # Setup .npmrc file to publish to npm
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v1
+      - name: Setup node
+        uses: actions/setup-node@v1
         with:
-          node-version: '14.x'
-          registry-url: 'https://npm.pkg.github.com'
-          # Defaults to the user or organization that owns the workflow file
-          scope: '@tango-crypto'
-      - run: yarn install
-      - run: yarn publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_PAT }}
+          node-version: 14
+      - name: Install
+        run: yarn install
+      - name: Build
+        run: yarn build
+      # - name: Run tests
+      #   run: npm test
+      - name: Package and publish
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.PACKAGES_PAT }}
+          registry: https://npm.pkg.github.com/
+          check-version: true
