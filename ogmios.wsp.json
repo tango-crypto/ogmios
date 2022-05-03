@@ -5,13 +5,21 @@
   [ "RequestNext", "RequestNextResponse"
   , "FindIntersect", "FindIntersectResponse"
   , "SubmitTx", "SubmitTxResponse"
+  , "EvaluateTx", "EvaluateTxResponse"
   , "Acquire", "AcquireResponse"
   , "Release","ReleaseResponse"
+  , "AwaitAcquire", "AwaitAcquireResponse"
+  , "NextTx", "NextTxResponse"
+  , "HasTx", "HasTxResponse"
+  , "SizeAndCapacity", "SizeAndCapacityResponse"
   , "Query"
+  , "QueryResponse[blockHeight]"
+  , "QueryResponse[chainTip]"
   , "QueryResponse[currentEpoch]"
   , "QueryResponse[currentProtocolParameters]"
   , "QueryResponse[delegationsAndRewards]"
   , "QueryResponse[eraStart]"
+  , "QueryResponse[eraSummaries]"
   , "QueryResponse[genesisConfig]"
   , "QueryResponse[ledgerTip]"
   , "QueryResponse[nonMyopicMemberRewards]"
@@ -20,7 +28,9 @@
   , "QueryResponse[poolsRanking]"
   , "QueryResponse[proposedProtocolParameters]"
   , "QueryResponse[rewardsProvenance]"
+  , "QueryResponse[rewardsProvenance']"
   , "QueryResponse[stakeDistribution]"
+  , "QueryResponse[systemStart]"
   , "QueryResponse[utxo]"
   , "Fault"
   ]
@@ -247,11 +257,11 @@
       , "args":
         { "type": "object"
         , "additionalProperties": false
-        , "required": ["bytes"]
+        , "required": ["submit"]
         , "properties":
-          { "bytes":
+          { "submit":
             { "type": "string"
-            , "description": "CBOR-serialized signed transaction, in base64"
+            , "description": "CBOR-serialized signed transaction, in base64 (or base16)"
             , "contentEncoding": "base64"
             , "pattern": "^[A-Za-z0-9+/]=?=?$"
             }
@@ -286,23 +296,106 @@
         }
       , "result":
         { "oneOf":
-          [ { "type": "string"
+          [ { "type": "object"
             , "title": "SubmitSuccess"
-            , "enum": ["SubmitSuccess"]
+            , "additionalProperties": false
+            , "required": ["SubmitSuccess"]
+            , "properties":
+              { "SubmitSuccess":
+                { "type": "object"
+                , "additionalProperties": false
+                , "required": [ "txId" ]
+                , "properties":
+                  { "txId": { "$ref": "#/definitions/TxId" }
+                  }
+                }
+              }
             }
           , { "type": "object"
             , "title": "SubmitFail"
             , "additionalProperties": false
             , "required": ["SubmitFail"]
             , "properties":
-              { "SubmitFail":
-                { "oneOf":
-                  [ { "$ref": "#/definitions/EraMismatch" }
-                  , { "$ref": "#/definitions/SubmitTxError" }
-                  ]
-                }
+              { "SubmitFail": { "$ref": "#/definitions/SubmitTxError" }
               }
             }
+          ]
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "EvaluateTx":
+    { "type": "object"
+    , "description": "Evaluate execution units for which redeemers's budget hasn't yet been set."
+    , "required": [ "type", "version", "servicename", "methodname" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/request" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "EvaluateTx" ]
+        }
+      , "args":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": ["evaluate"]
+        , "properties":
+          { "evaluate":
+            { "type": "string"
+            , "description": "CBOR-serialized signed transaction, in base64 (or base16)"
+            , "contentEncoding": "base64"
+            , "pattern": "^[A-Za-z0-9+/]=?=?$"
+            }
+          , "additionalUtxoSet":
+            { "$ref": "#/definitions/Utxo"
+            }
+          }
+        }
+      , "mirror":
+        { "description": "An arbitrary JSON value that will be mirrored back in the response."
+        }
+      }
+    }
+
+  , "EvaluateTxResponse":
+    { "type": "object"
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "EvaluateTx" ]
+        }
+      , "result":
+        { "oneOf":
+          [ { "$ref": "#/definitions/EvaluationResult" }
+          , { "$ref": "#/definitions/EvaluationFailure" }
           ]
         }
       , "reflection":
@@ -473,6 +566,349 @@
       }
     }
 
+  , "AwaitAcquire":
+    { "type": "object"
+    , "description": "Acquire a mempool snapshot. This is blocking until a new (i.e different) snapshot is available."
+    , "required": [ "type", "version", "servicename", "methodname" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/request" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "AwaitAcquire" ]
+        }
+      , "args":
+        { "type": "object"
+        , "additionalProperties": false
+        }
+      , "mirror":
+        { "description": "An arbitrary JSON value that will be mirrored back in the response."
+        }
+      }
+    }
+
+  , "AwaitAcquireResponse":
+    { "type": "object"
+    , "description": "Response to a 'AwaitAcquire' request."
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "AwaitAcquire" ]
+        }
+      , "result":
+        { "type": "object"
+        , "title": "AwaitAcquired"
+        , "additionalProperties": false
+        , "required": [ "AwaitAcquired" ]
+        , "properties":
+          { "AwaitAcquired":
+            { "type": "object"
+            , "additionalProperties": false
+            , "required": [ "slot" ]
+            , "properties":
+              { "slot": { "$ref": "#/definitions/Slot" }
+              }
+            }
+          }
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "NextTx":
+    { "type": "object"
+    , "description": "Request the next transaction from an acquired snapshot."
+    , "required": [ "type", "version", "servicename", "methodname" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/request" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "NextTx" ]
+        }
+      , "args":
+        { "type": "object"
+        , "additionalProperties": false
+        , "properties":
+          { "fields":
+            { "type": "string"
+            , "enum": [ "all" ]
+            }
+          }
+        }
+      , "mirror":
+        { "description": "An arbitrary JSON value that will be mirrored back in the response."
+        }
+      }
+    }
+
+  , "NextTxResponse":
+    { "type": "object"
+    , "description": "Response to a 'NextTx' request."
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "NextTx" ]
+        }
+      , "result":
+        { "oneOf":
+          [ { "$ref": "#/definitions/TxId" }
+          , { "$ref": "#/definitions/Tx[Alonzo]" }
+          , { "$ref": "#/definitions/Null" }
+          ]
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "HasTx":
+    { "type": "object"
+    , "description": "Ask whether a given transaction is present in the acquired mempool snapshot."
+    , "required": [ "type", "version", "servicename", "methodname" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/request" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "HasTx" ]
+        }
+      , "args":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": [ "id" ]
+        , "properties":
+          { "id": { "$ref": "#/definitions/TxId" }
+          }
+        }
+      , "mirror":
+        { "description": "An arbitrary JSON value that will be mirrored back in the response."
+        }
+      }
+    }
+
+  , "HasTxResponse":
+    { "type": "object"
+    , "description": "Response to a 'HasTx' request."
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "HasTx" ]
+        }
+      , "result":
+        { "type": "boolean"
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "SizeAndCapacity":
+    { "type": "object"
+    , "description": "Get size and capacities of the mempool (acquired snapshot)."
+    , "required": [ "type", "version", "servicename", "methodname" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/request" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "SizeAndCapacity" ]
+        }
+      , "args":
+        { "type": "object"
+        , "additionalProperties": false
+        }
+      , "mirror":
+        { "description": "An arbitrary JSON value that will be mirrored back in the response."
+        }
+      }
+    }
+
+  , "SizeAndCapacityResponse":
+    { "type": "object"
+    , "description": "Response to a 'SizeAndCapacity' request."
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "SizeAndCapacity" ]
+        }
+      , "result":
+        { "$ref": "#/definitions/MempoolSizeAndCapacity"
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "ReleaseMempool":
+    { "type": "object"
+    , "description": "Release a previously acquired mempool snapshot."
+    , "required": [ "type", "version", "servicename", "methodname" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/request" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "ReleaseMempool" ]
+        }
+      , "args":
+        { "type": "object"
+        , "additionalProperties": false
+        }
+      , "mirror":
+        { "description": "An arbitrary JSON value that will be mirrored back in the response."
+        }
+      }
+    }
+
+  , "ReleaseMempoolResponse":
+    { "type": "object"
+    , "description": "Response to a 'ReleaseMempool' request."
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "ReleaseMempool" ]
+        }
+      , "result":
+        { "type": "string"
+        , "enum": ["Released"]
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
   , "Query":
     { "type": "object"
     , "description": "Query the current ledger tip."
@@ -507,6 +943,10 @@
                 , "enum": ["eraStart"]
                 }
               , { "type": "string"
+                , "title": "GetEraSummaries"
+                , "enum": ["eraSummaries"]
+                }
+              , { "type": "string"
                 , "title": "GetLedgerTip"
                 , "enum": ["ledgerTip"]
                 }
@@ -527,7 +967,7 @@
                         }
                       , { "type": "array"
                         , "title": "Credentials"
-                        , "items": { "$ref": "#/definitions/Hash16" }
+                        , "items": { "$ref": "#/definitions/Digest[Blake2b]::Credential" }
                         }
                       ]
                     }
@@ -540,7 +980,7 @@
                 , "properties":
                   { "delegationsAndRewards":
                     { "type": "array"
-                    , "items": { "$ref": "#/definitions/Hash16" }
+                    , "items": { "$ref": "#/definitions/Digest[Blake2b]::Credential" }
                     }
                   }
                 }
@@ -587,8 +1027,12 @@
                 , "enum": ["genesisConfig"]
                 }
               , { "type": "string"
-                , "title": "GetRewardsProvenance"
+                , "title": "GetRewardsProvenance (deprecated)"
                 , "enum": ["rewardsProvenance"]
+                }
+              , { "type": "string"
+                , "title": "GetRewardsProvenance'"
+                , "enum": ["rewardsProvenance'"]
                 }
               , { "type": "string"
                 , "title": "GetPoolsRanking"
@@ -613,6 +1057,18 @@
                       }
                     }
                   }
+                }
+              , { "type": "string"
+                , "title": "GetChainTip"
+                , "enum": ["chainTip"]
+                }
+              , { "type": "string"
+                , "title": "GetBlockHeight"
+                , "enum": ["blockHeight"]
+                }
+              , { "type": "string"
+                , "title": "GetSystemStart"
+                , "enum": ["systemStart"]
                 }
               ]
             }
@@ -649,6 +1105,41 @@
         { "oneOf":
           [ { "$ref": "#/definitions/Bound" }
           , { "$ref": "#/definitions/QueryUnavailableInCurrentEra" }
+          ]
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "QueryResponse[eraSummaries]":
+    { "type": "object"
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "Query" ]
+        }
+      , "result":
+        { "oneOf":
+          [ { "$ref": "#/definitions/QueryUnavailableInCurrentEra" }
+          , { "type": "array"
+            , "items": { "$ref": "#/definitions/EraSummary" }
+            }
           ]
         }
       , "reflection":
@@ -980,6 +1471,7 @@
   , "QueryResponse[rewardsProvenance]":
     { "type": "object"
     , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "description": "This query is now deprecated. Use /rewardsProvenance'/ instead."
     , "additionalProperties": false
     , "properties":
       { "type":
@@ -1001,6 +1493,40 @@
       , "result":
         { "oneOf":
           [ { "$ref": "#/definitions/RewardsProvenance" }
+          , { "$ref": "#/definitions/EraMismatch" }
+          , { "$ref": "#/definitions/QueryUnavailableInCurrentEra" }
+          ]
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "QueryResponse[rewardsProvenance']":
+    { "type": "object"
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "Query" ]
+        }
+      , "result":
+        { "oneOf":
+          [ { "$ref": "#/definitions/RewardsProvenance'" }
           , { "$ref": "#/definitions/EraMismatch" }
           , { "$ref": "#/definitions/QueryUnavailableInCurrentEra" }
           ]
@@ -1084,7 +1610,6 @@
       }
     }
 
-
   , "QueryResponse[poolsRanking]":
     { "type": "object"
     , "required": [ "type", "version", "servicename", "methodname", "result" ]
@@ -1110,6 +1635,105 @@
         { "oneOf":
           [ { "$ref": "#/definitions/PoolsRanking" }
           , { "$ref": "#/definitions/EraMismatch" }
+          , { "$ref": "#/definitions/QueryUnavailableInCurrentEra" }
+          ]
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "QueryResponse[blockHeight]":
+    { "type": "object"
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "Query" ]
+        }
+      , "result":
+        { "oneOf":
+          [ { "$ref": "#/definitions/BlockNoOrOrigin" }
+          , { "$ref": "#/definitions/QueryUnavailableInCurrentEra" }
+          ]
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "QueryResponse[chainTip]":
+    { "type": "object"
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "Query" ]
+        }
+      , "result":
+        { "oneOf":
+          [ { "$ref": "#/definitions/PointOrOrigin" }
+          , { "$ref": "#/definitions/QueryUnavailableInCurrentEra" }
+          ]
+        }
+      , "reflection":
+        { "description": "Any value that was set by a client request in the 'mirror' field."
+        }
+      }
+    }
+
+  , "QueryResponse[systemStart]":
+    { "type": "object"
+    , "required": [ "type", "version", "servicename", "methodname", "result" ]
+    , "additionalProperties": false
+    , "properties":
+      { "type":
+        { "type": "string"
+        , "enum": [ "jsonwsp/response" ]
+        }
+      , "version":
+        { "type": "string"
+        , "enum": [ "1.0" ]
+        }
+      , "servicename":
+        { "type": "string"
+        , "enum": [ "ogmios" ]
+        }
+      , "methodname":
+        { "type": "string"
+        , "enum": [ "Query" ]
+        }
+      , "result":
+        { "oneOf":
+          [ { "$ref": "#/definitions/UtcTime" }
           , { "$ref": "#/definitions/QueryUnavailableInCurrentEra" }
           ]
         }
@@ -1184,6 +1808,12 @@
       ]
     }
 
+  , "AddressAttributes":
+    { "type": "string"
+    , "description": "Extra attributes carried by Byron addresses (network magic and/or HD payload)."
+    , "contentEncoding": "base64"
+    }
+
   , "AssetQuantity":
     { "type": "integer"
     , "description": "A number of asset, can be negative went burning assets."
@@ -1194,7 +1824,7 @@
     , "additionalProperties": false
     , "required": [ "hash", "body" ]
     , "properties":
-      { "hash": { "$ref": "#/definitions/Hash16" }
+      { "hash": { "$ref": "#/definitions/Digest[Blake2b]::AuxiliaryDataBody" }
       , "body": { "$ref": "#/definitions/AuxiliaryDataBody" }
       }
     }
@@ -1310,7 +1940,7 @@
             }
           ]
         , "properties":
-          { "hash": { "$ref": "#/definitions/Hash16" }
+          { "hash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].header" }
           , "header":
             { "type": "object"
             , "additionalProperties": false
@@ -1318,8 +1948,8 @@
             , "$omitted-if-compact": ["proof", "signature"]
             , "properties":
               { "blockHeight": { "$ref": "#/definitions/BlockNo" }
-              , "genesisKey": { "$ref": "#/definitions/Hash16" }
-              , "prevHash": { "$ref": "#/definitions/Hash16" }
+              , "genesisKey": { "$ref": "#/definitions/GenesisVerificationKey" }
+              , "prevHash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].header" }
               , "proof": { "$ref": "#/definitions/BlockProof" }
               , "protocolMagicId": { "$ref": "#/definitions/ProtocolMagicId" }
               , "protocolVersion": { "$ref": "#/definitions/ProtocolVersion" }
@@ -1336,20 +1966,7 @@
             , "properties":
               { "txPayload":
                 { "type": "array"
-                , "items":
-                  { "type": "object"
-                  , "additionalProperties": false
-                  , "required": [ "id", "body", "witness" ]
-                  , "$omitted-if-compact": ["witness"]
-                  , "properties":
-                    { "id": { "$ref": "#/definitions/Hash16" }
-                    , "body": { "$ref": "#/definitions/Tx" }
-                    , "witness":
-                      { "type": "array"
-                      , "items": { "$ref": "#/definitions/TxWitness" }
-                      }
-                    }
-                  }
+                , "items": { "$ref": "#/definitions/Tx[Byron]" }
                 }
               , "dlgPayload":
                 { "type": "array"
@@ -1383,8 +2000,8 @@
                               , "parametersUpdate": { "$ref": "#/definitions/ProtocolParameters[Byron]" }
                               }
                             }
-                          , "issuer": { "$ref": "#/definitions/Hash64" }
-                          , "signature": { "$ref": "#/definitions/Hash64" }
+                          , "issuer": { "$ref": "#/definitions/IssuerVrfVerificationKey" }
+                          , "signature": { "$ref": "#/definitions/IssuerSignature" }
                           }
                         }
                       ]
@@ -1403,7 +2020,7 @@
         , "title": "epoch boundary block"
         , "additionalProperties": false
         , "properties":
-          { "hash": { "$ref": "#/definitions/Hash16" }
+          { "hash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].header" }
           , "header":
             { "type": "object"
             , "additionalProperties": false
@@ -1411,7 +2028,7 @@
             , "properties":
               { "blockHeight": { "$ref": "#/definitions/BlockNo" }
               , "epoch": { "$ref": "#/definitions/Epoch" }
-              , "prevHash": { "$ref": "#/definitions/Hash16" }
+              , "prevHash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].header" }
               }
             }
           }
@@ -1495,9 +2112,9 @@
     , "properties":
       { "body":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/BlockBody[Shelley]" }
+        , "items": { "$ref": "#/definitions/Tx[Shelley]" }
         }
-      , "headerHash": { "$ref": "#/definitions/Hash16" }
+      , "headerHash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].header" }
       , "header":
         { "type": "object"
         , "additionalProperties": false
@@ -1509,77 +2126,17 @@
         , "properties":
           { "blockHeight": { "$ref": "#/definitions/BlockNo" }
           , "slot": { "$ref": "#/definitions/Slot" }
-          , "prevHash": { "$ref": "#/definitions/Hash16" }
-          , "issuerVk": { "$ref": "#/definitions/Hash16" }
-          , "issuerVrf": { "$ref": "#/definitions/Hash64" }
-          , "nonce": { "$ref": "#/definitions/NonceProof" }
-          , "leaderValue": { "$ref": "#/definitions/LeaderValue" }
+          , "prevHash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].header" }
+          , "issuerVk": { "$ref": "#/definitions/VerificationKey" }
+          , "issuerVrf": { "$ref": "#/definitions/IssuerVrfVerificationKey" }
+          , "nonce": { "$ref": "#/definitions/CertifiedVrf" }
+          , "leaderValue": { "$ref": "#/definitions/CertifiedVrf" }
           , "blockSize": { "$ref": "#/definitions/BlockSize" }
-          , "blockHash": { "$ref": "#/definitions/Hash16" }
+          , "blockHash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].body" }
           , "opCert": { "$ref": "#/definitions/OpCert" }
           , "protocolVersion": { "$ref": "#/definitions/ProtocolVersion" }
-          , "signature": { "$ref": "#/definitions/Hash64" }
+          , "signature": { "$ref": "#/definitions/IssuerSignature" }
           }
-        }
-      }
-    }
-
-  , "BlockBody[Shelley]":
-    { "type": "object"
-    , "additionalProperties": false
-    , "required": [ "id", "body", "witness", "metadata" ]
-    , "$omitted-if-compact": ["witness"]
-    , "properties":
-      { "id": { "$ref": "#/definitions/Hash16" }
-      , "body":
-        { "type": "object"
-        , "additionalProperties": false
-        , "required": ["inputs","outputs","certificates","withdrawals","fee","timeToLive","update"]
-        , "properties":
-          { "inputs":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxIn" }
-            }
-          , "outputs":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxOut" }
-            }
-          , "certificates":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/Certificate" }
-            }
-          , "withdrawals": { "$ref": "#/definitions/Withdrawals" }
-          , "fee": { "$ref": "#/definitions/Lovelace" }
-          , "timeToLive": { "$ref": "#/definitions/Slot" }
-          , "update": { "$ref": "#/definitions/Update[Shelley]" }
-          }
-        }
-      , "witness":
-        { "type": "object"
-        , "additionalProperties": false
-        , "required": ["signatures","scripts","bootstrap"]
-        , "properties":
-          { "signatures":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Signature" }
-            }
-          , "scripts":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Script" }
-            }
-          , "bootstrap":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/BootstrapWitness" }
-            }
-          }
-        }
-      , "metadata":
-        { "oneOf":
-          [ { "$ref": "#/definitions/AuxiliaryData" }
-          , { "$ref": "#/definitions/Null"}
-          ]
         }
       }
     }
@@ -1660,70 +2217,10 @@
     , "properties":
       { "body":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/BlockBody[Allegra]" }
+        , "items": { "$ref": "#/definitions/Tx[Allegra]" }
         }
       , "headerHash": { "$ref": "#/definitions/Block[Shelley]/properties/headerHash" }
       , "header": { "$ref": "#/definitions/Block[Shelley]/properties/header" }
-      }
-    }
-
-  , "BlockBody[Allegra]":
-    { "type": "object"
-    , "additionalProperties": false
-    , "required": [ "id", "body", "witness", "metadata" ]
-    , "$omitted-if-compact": ["witness"]
-    , "properties":
-      { "id": { "$ref": "#/definitions/Hash16" }
-      , "body":
-        { "type": "object"
-        , "additionalProperties": false
-        , "required": ["inputs","outputs","certificates","withdrawals","fee","validityInterval","update"]
-        , "properties":
-          { "inputs":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxIn" }
-            }
-          , "outputs":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxOut" }
-            }
-          , "certificates":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/Certificate" }
-            }
-          , "withdrawals": { "$ref": "#/definitions/Withdrawals" }
-          , "fee": { "$ref": "#/definitions/Lovelace" }
-          , "validityInterval": { "$ref": "#/definitions/ValidityInterval" }
-          , "update": { "$ref": "#/definitions/Update[Shelley]" }
-          }
-        }
-      , "witness":
-        { "type": "object"
-        , "additionalProperties": false
-        , "required": ["signatures","scripts","bootstrap"]
-        , "properties":
-          { "signatures":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Signature" }
-            }
-          , "scripts":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Script" }
-            }
-          , "bootstrap":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/BootstrapWitness" }
-            }
-          }
-        }
-      , "metadata":
-        { "oneOf":
-          [ { "$ref": "#/definitions/AuxiliaryData" }
-          , { "$ref": "#/definitions/Null"}
-          ]
-        }
       }
     }
 
@@ -1826,71 +2323,10 @@
     , "properties":
       { "body":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/BlockBody[Mary]" }
+        , "items": { "$ref": "#/definitions/Tx[Mary]" }
         }
       , "headerHash": { "$ref": "#/definitions/Block[Shelley]/properties/headerHash" }
       , "header": { "$ref": "#/definitions/Block[Shelley]/properties/header" }
-      }
-    }
-
-  , "BlockBody[Mary]":
-    { "type": "object"
-    , "additionalProperties": false
-    , "required": [ "id", "body", "witness", "metadata" ]
-    , "$omitted-if-compact": ["witness"]
-    , "properties":
-      { "id": { "$ref": "#/definitions/Hash16" }
-      , "body":
-        { "type": "object"
-        , "additionalProperties": false
-        , "required": ["inputs","outputs","certificates","withdrawals","fee","validityInterval","mint","update"]
-        , "properties":
-          { "inputs":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxIn" }
-            }
-          , "outputs":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxOut" }
-            }
-          , "certificates":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/Certificate" }
-            }
-          , "withdrawals": { "$ref": "#/definitions/Withdrawals" }
-          , "fee": { "$ref": "#/definitions/Lovelace" }
-          , "validityInterval": { "$ref": "#/definitions/ValidityInterval" }
-          , "update": { "$ref": "#/definitions/Update[Shelley]" }
-          , "mint": { "$ref": "#/definitions/Value" }
-          }
-        }
-      , "witness":
-        { "type": "object"
-        , "additionalProperties": false
-        , "required": ["signatures","scripts","bootstrap"]
-        , "properties":
-          { "signatures":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Signature" }
-            }
-          , "scripts":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Script" }
-            }
-          , "bootstrap":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/BootstrapWitness" }
-            }
-          }
-        }
-      , "metadata":
-        { "oneOf":
-          [ { "$ref": "#/definitions/AuxiliaryData" }
-          , { "$ref": "#/definitions/Null"}
-          ]
-        }
       }
     }
 
@@ -1901,124 +2337,25 @@
     , "properties":
       { "body":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/BlockBody[Alonzo]" }
+        , "items": { "$ref": "#/definitions/Tx[Alonzo]" }
         }
       , "headerHash": { "$ref": "#/definitions/Block[Shelley]/properties/headerHash" }
       , "header": { "$ref": "#/definitions/Block[Shelley]/properties/header" }
       }
     }
 
-  , "BlockBody[Alonzo]":
-    { "type": "object"
-    , "additionalProperties": false
-    , "required": [ "id", "body", "witness", "metadata" ]
-    , "$omitted-if-compact": ["witness"]
-    , "properties":
-      { "id": { "$ref": "#/definitions/Hash16" }
-      , "body":
-        { "type": "object"
-        , "additionalProperties": false
-        , "required":
-          [ "inputs", "collaterals", "outputs", "certificates"
-          , "withdrawals", "fee", "validityInterval", "update", "mint"
-          , "network", "scriptIntegrityHash", "requiredExtraSignatures"
-          ]
-        , "properties":
-          { "inputs":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxIn" }
-            }
-          , "collaterals":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxIn" }
-            }
-          , "outputs":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/TxOut" }
-            }
-          , "certificates":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/Certificate" }
-            }
-          , "withdrawals":
-            { "$ref": "#/definitions/Withdrawals"
-            }
-          , "fee":
-            { "$ref": "#/definitions/Lovelace"
-            }
-          , "validityInterval":
-            { "$ref": "#/definitions/ValidityInterval"
-            }
-          , "update":
-            { "$ref": "#/definitions/Update[Alonzo]"
-            }
-          , "mint":
-            { "$ref": "#/definitions/Value"
-            }
-          , "network":
-            { "oneOf":
-              [ { "$ref": "#/definitions/Network" }
-              , { "$ref": "#/definitions/Null"}
-              ]
-            }
-          , "scriptIntegrityHash":
-            { "oneOf":
-              [ { "$ref": "#/definitions/Hash16" }
-              , { "$ref": "#/definitions/Null"}
-              ]
-            }
-          , "requiredExtraSignatures":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/Hash16" }
-            }
-          }
-        }
-      , "witness":
-        { "type": "object"
-        , "additionalProperties": false
-        , "required": ["signatures","scripts","bootstrap", "datums", "redeemers"]
-        , "properties":
-          { "signatures":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Signature" }
-            }
-          , "scripts":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Script" }
-            }
-          , "bootstrap":
-            { "type": "array"
-            , "items": { "$ref": "#/definitions/BootstrapWitness" }
-            }
-          , "datums":
-            { "type": "object"
-            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
-            , "additionalProperties": { "$ref": "#/definitions/Hash64" }
-            }
-          , "redeemers":
-            { "type": "object"
-            , "propertyNames": { "$ref": "#/definitions/RedeemerPointer" }
-            , "additionalProperties": { "$ref": "#/definitions/Redeemer" }
-            }
-          }
-        }
-      , "metadata":
-        { "oneOf":
-          [ { "$ref": "#/definitions/AuxiliaryData" }
-          , { "$ref": "#/definitions/Null"}
-          ]
-        }
-      }
-    }
-
-
   , "BlockNo":
     { "type": "integer"
     , "description": "A block number, the i-th block to be minted is number i."
     , "minimum": 0
     , "maximum": 18446744073709552999
+    }
+
+  , "BlockNoOrOrigin":
+    { "oneOf":
+      [ { "$ref": "#/definitions/BlockNo" }
+      , { "$ref": "#/definitions/Origin" }
+      ]
     }
 
   , "BlockProof":
@@ -2032,12 +2369,12 @@
         , "required": [ "number", "root", "witnessesHash" ]
         , "properties":
           { "number": { "$ref": "#/definitions/UInt32" }
-          , "root": { "$ref": "#/definitions/Hash16" }
-          , "witnessesHash": { "$ref": "#/definitions/Hash16" }
+          , "root": { "$ref": "#/definitions/Digest[Blake2b]::MerkleRoot" }
+          , "witnessesHash": { "$ref": "#/definitions/Digest[Blake2b]::Block[Byron].body.txPayload[].witness" }
           }
         }
-      , "delegation": { "$ref": "#/definitions/Hash16" }
-      , "update": { "$ref": "#/definitions/Hash16" }
+      , "delegation": { "$ref": "#/definitions/Digest[Blake2b]::Block[Byron].body.dlgPayload" }
+      , "update": { "$ref": "#/definitions/Digest[Blake2b]::Block[Byron].body.updatePayload" }
       }
     }
 
@@ -2047,7 +2384,7 @@
     , "required": [ "dlgCertificate", "signature" ]
     , "properties":
       { "dlgCertificate": { "$ref": "#/definitions/DlgCertificate" }
-      , "signature": { "$ref": "#/definitions/Hash64" }
+      , "signature": { "$ref": "#/definitions/IssuerSignature" }
       }
     }
 
@@ -2074,20 +2411,20 @@
       ]
     , "additionalProperties": false
     , "properties":
-      { "signature": { "$ref": "#/definitions/Hash64" }
+      { "signature": { "$ref": "#/definitions/Signature" }
       , "chainCode":
         { "oneOf":
-          [ { "$ref": "#/definitions/Hash16" }
+          [ { "$ref": "#/definitions/ChainCode" }
           , { "$ref": "#/definitions/Null"}
           ]
         }
       , "addressAttributes":
         { "oneOf":
-          [ { "$ref": "#/definitions/Hash64" }
+          [ { "$ref": "#/definitions/AddressAttributes" }
           , { "$ref": "#/definitions/Null"}
           ]
         }
-      , "key": { "$ref": "#/definitions/Hash16" }
+      , "key": { "$ref": "#/definitions/VerificationKey" }
       }
     }
 
@@ -2116,7 +2453,7 @@
             , "additionalProperties": false
             , "required": ["delegator", "delegatee"]
             , "properties":
-              { "delegator": { "$ref": "#/definitions/Hash16" }
+              { "delegator": { "$ref": "#/definitions/Digest[Blake2b]::Credential" }
               , "delegatee": { "$ref": "#/definitions/PoolId" }
               }
             }
@@ -2135,7 +2472,7 @@
         , "additionalProperties": false
         , "required": ["stakeKeyRegistration"]
         , "properties":
-          { "stakeKeyRegistration": { "$ref": "#/definitions/Hash16" }
+          { "stakeKeyRegistration": { "$ref": "#/definitions/Digest[Blake2b]::Credential" }
           }
         , "examples":
           [ { "stakeKeyRegistration": "6d06fe0a5a8cb6d2bcc352581dea626bb5b2f66edf85678b2f2fa7b5"
@@ -2148,7 +2485,7 @@
         , "additionalProperties": false
         , "required": ["stakeKeyDeregistration"]
         , "properties":
-          { "stakeKeyDeregistration": { "$ref": "#/definitions/Hash16" }
+          { "stakeKeyDeregistration": { "$ref": "#/definitions/Digest[Blake2b]::Credential" }
           }
         , "examples":
           [ { "stakeKeyDeregistration": "6d06fe0a5a8cb6d2bcc352581dea626bb5b2f66edf85678b2f2fa7b5"
@@ -2222,9 +2559,9 @@
             , "additionalProperties": false
             , "required": ["delegateKeyHash","verificationKeyHash","vrfVerificationKeyHash"]
             , "properties":
-              { "delegateKeyHash": { "$ref": "#/definitions/Hash16" }
-              , "verificationKeyHash": { "$ref": "#/definitions/Hash16" }
-              , "vrfVerificationKeyHash": { "$ref": "#/definitions/Hash16" }
+              { "delegateKeyHash": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
+              , "verificationKeyHash": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
+              , "vrfVerificationKeyHash": { "$ref": "#/definitions/Digest[Blake2b]::VrfVerificationKey" }
               }
             }
           }
@@ -2248,6 +2585,21 @@
           }
         }
       ]
+    }
+
+  , "CertifiedVrf":
+    { "type": "object"
+    , "additionalProperties": false
+    , "properties":
+      { "proof": { "$ref": "#/definitions/VrfProof" }
+      , "output": { "$ref": "#/definitions/VrfOutput" }
+      }
+    }
+
+  , "ChainCode":
+    { "type": "string"
+    , "description": "An Ed25519-BIP32 chain-code for key deriviation."
+    , "contentEncoding": "base16"
     }
 
   , "CompactGenesis":
@@ -2277,7 +2629,7 @@
       , "epochLength": { "$ref": "#/definitions/Epoch" }
       , "slotsPerKesPeriod": { "$ref": "#/definitions/UInt64" }
       , "maxKesEvolutions": { "$ref": "#/definitions/UInt64" }
-      , "slotLength": { "$ref": "#/definitions/Int64" }
+      , "slotLength": { "$ref": "#/definitions/SlotLength" }
       , "updateQuorum": { "$ref": "#/definitions/UInt64" }
       , "maxLovelaceSupply": { "$ref": "#/definitions/UInt64" }
       , "protocolParameters": { "$ref": "#/definitions/ProtocolParameters[Shelley]" }
@@ -2323,7 +2675,7 @@
   , "CostModels":
     { "type": "object"
     , "additionalProperties": { "$ref": "#/definitions/CostModel" }
-    , "propertyNames": { "enum": [ "plutus:v1" ] }
+    , "propertyNames": { "$ref": "#/definitions/Language" }
     , "examples":
       [ { "plutus:v1":
           { "k": 14
@@ -2360,6 +2712,124 @@
       ]
     }
 
+  , "Digest[Blake2b]::AuxiliaryDataBody":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of an 'AuxiliaryDataBody', serialised as CBOR."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::Block[*].body":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of an era-independent block body."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::Block[*].header":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of an era-independent block header, serialised as CBOR."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::Block[Byron].body.dlgPayload":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a Byron delegation payload, CBOR-encoded."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::Block[Byron].body.txPayload[].witness":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a Byron transaction witness set, CBOR-encoded."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::Block[Byron].body.updatePayload":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a Byron update payload, CBOR-encoded."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::Credential":
+    { "type": "string"
+    , "description": "A Blake2b 28-byte digest of a verification key or a script."
+    , "contentEncoding": "base16"
+    , "minLength": 56
+    , "maxLength": 56
+    }
+
+  , "Digest[Blake2b]::Datum":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a serialized datum, CBOR-encoded."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::MerkleRoot":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a Merkle tree (or all block's transactions) root hash."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::Nonce":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of some arbitrary to make a nonce."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::PoolMetadata":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of stake pool (canonical) JSON metadata."
+    , "contentEncoding": "base16"
+    }
+
+  , "Digest[Blake2b]::Script":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a phase-1 or phase-2 script, CBOR-encoded."
+    , "contentEncoding": "base16"
+    , "minLength": 56
+    , "maxLength": 56
+    }
+
+  , "Digest[Blake2b]::ScriptIntegrity":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a script-integrity hash (i.e redeemers, datums and cost model, CBOR-encoded)."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
+  , "Digest[Blake2b]::VerificationKey":
+    { "type": "string"
+    , "description": "A Blake2b 28-byte digest of an Ed25519 verification key."
+    , "contentEncoding": "base16"
+    , "minLength": 56
+    , "maxLength": 56
+    }
+
+  , "Digest[Blake2b]::VrfVerificationKey":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a VRF verification key."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
   , "DlgCertificate":
     { "type": "object"
     , "description": "A (Byron) delegation certificate."
@@ -2367,15 +2837,15 @@
     , "required": [ "epoch", "issuerVk", "delegateVk", "signature" ]
     , "properties":
       { "epoch": { "$ref": "#/definitions/Epoch" }
-      , "issuerVk": { "$ref": "#/definitions/Hash16" }
-      , "delegateVk": { "$ref": "#/definitions/Hash16" }
-      , "signature": { "$ref": "#/definitions/Hash64" }
+      , "issuerVk": { "$ref": "#/definitions/GenesisVerificationKey" }
+      , "delegateVk": { "$ref": "#/definitions/GenesisVerificationKey" }
+      , "signature": { "$ref": "#/definitions/IssuerSignature" }
       }
     }
 
   , "Epoch":
     { "type": "integer"
-    , "description": "An epoch number."
+    , "description": "An epoch number or length."
     , "minimum": 0
     , "maximum": 18446744073709552000
     }
@@ -2403,6 +2873,135 @@
       }
     }
 
+  , "EraParameters":
+    { "type": "object"
+    , "description": "Parameters that can vary across hard forks."
+    , "additionalProperties": false
+    , "required": [ "epochLength", "slotLength", "safeZone" ]
+    , "properties":
+      { "epochLength": { "$ref": "#/definitions/Epoch" }
+      , "slotLength": { "$ref": "#/definitions/SlotLength" }
+      , "safeZone":
+        { "oneOf":
+          [ { "$ref": "#/definitions/SafeZone" }
+          , { "type": "null" }
+          ]
+        }
+      }
+    }
+
+  , "EraSummary":
+    { "type": "object"
+    , "description": "Summary of the confirmed parts of the ledger."
+    , "additionalProperties": false
+    , "required": [ "start", "end", "parameters" ]
+    , "properties":
+      { "start": { "$ref": "#/definitions/Bound" }
+      , "end":
+        { "oneOf":
+          [ { "$ref": "#/definitions/Bound" }
+          , { "type": "null" }
+          ]
+        }
+      , "parameters": { "$ref": "#/definitions/EraParameters" }
+      }
+    }
+
+  , "EvaluationFailure":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "EvaluationFailure" ]
+    , "properties":
+      { "EvaluationFailure":
+        { "oneOf":
+            [ { "$ref": "#/definitions/EvaluationFailure[ScriptFailures]" }
+            , { "$ref": "#/definitions/EvaluationFailure[UnknownInputs]" }
+            , { "$ref": "#/definitions/EvaluationFailure[IncompatibleEra]" }
+            , { "$ref": "#/definitions/EvaluationFailure[UncomputableSlotArithmetic]" }
+            , { "$ref": "#/definitions/EvaluationFailure[AdditionalUtxoOverlap]" }
+            ]
+        }
+      }
+    }
+
+  , "EvaluationFailure[ScriptFailures]":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "ScriptFailures" ]
+    , "properties":
+      { "ScriptFailures":
+        { "type": "object"
+        , "propertyNames": { "$ref": "#/definitions/RedeemerPointer" }
+        , "additionalProperties": { "$ref": "#/definitions/ScriptFailure" }
+        }
+      }
+    }
+
+  , "EvaluationFailure[UnknownInputs]":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "UnknownInputs" ]
+    , "properties":
+      { "UnknownInputs":
+        { "type": "array"
+        , "items": { "$ref": "#/definitions/TxIn" }
+        }
+      }
+    }
+
+  , "EvaluationFailure[IncompatibleEra]":
+    { "type": "object"
+    , "description": "Returned when trying to evaluate execution units of a pre-Alonzo transaction. Note that this isn't possible with Ogmios because transactions are always de-serialized as Alonzo transactions."
+    , "additionalProperties": false
+    , "required": [ "IncompatibleEra" ]
+    , "properties":
+      { "IncompatibleEra":
+        { "type": "string"
+        , "description": "The era in which the transaction has been identified."
+        , "enum": [ "Byron", "Shelley", "Allegra", "Mary" ]
+        }
+      }
+    }
+
+  , "EvaluationFailure[UncomputableSlotArithmetic]":
+    { "type": "object"
+    , "description": "May happen when evaluating a transaction with validity bounds that goes past the foreseeable end of the current era (i.e. near a hardfork)."
+    , "additionalProperties": false
+    , "required": [ "UncomputableSlotArithmetic" ]
+    , "properties":
+      { "UncomputableSlotArithmetic":
+        { "type": "string"
+        , "description": "An error message, possibly meaningful but likely unreadable."
+        }
+      }
+    }
+
+  , "EvaluationFailure[AdditionalUtxoOverlap]":
+    { "type": "object"
+    , "description": "Happens when providing an additional UTXO set which overlaps with the UTXO on-chain."
+    , "additionalProperties": false
+    , "required": [ "AdditionalUtxoOverlap" ]
+    , "properties":
+      { "AdditionalUtxoOverlap":
+        { "type": "array"
+        , "items": { "$ref": "#/definitions/TxIn" }
+        }
+      }
+    }
+
+  , "EvaluationResult":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "EvaluationResult" ]
+    , "properties":
+      { "EvaluationResult":
+        { "type": "object"
+        , "propertyNames": { "$ref": "#/definitions/RedeemerPointer" }
+        , "additionalProperties": { "$ref": "#/definitions/ExUnits" }
+        }
+      }
+    }
+
   , "ExUnits":
     { "type": "object"
     , "additionalProperties": false
@@ -2413,18 +3012,12 @@
       }
     }
 
-  , "Hash16":
+  , "GenesisVerificationKey":
     { "type": "string"
-    , "description": "A base16-encoded digest."
+    , "description": "An Ed25519-BIP32 Byron genesis delegate verification key with chain-code."
     , "contentEncoding": "base16"
-    , "pattern": "^[0-9a-f]*$"
-    }
-
-  , "Hash64":
-    { "type": "string"
-    , "description": "A base64-encoded digest."
-    , "contentEncoding": "base64"
-    , "pattern": "^[A-Za-z0-9+/]*=?=?$"
+    , "minLength": 128
+    , "maxLength": 128
     }
 
   , "IndividualPoolRewardsProvenance":
@@ -2456,8 +3049,7 @@
           , "description": "The stake pool's active stake share (portion of the active stake)."
           }
       , "ownerStake":
-          { "$ref": "#/definitions/Lovelace"
-          , "description": "The number of Lovelace owned by the stake pool owners. If this value is not at least as large as the 'pledgeRatio', the stake pool will not earn any rewards for the given epoch."
+          { "$ref": "#/definitions/OwnerStake"
           }
       , "parameters":
           { "$ref": "#/definitions/PoolParameters" }
@@ -2528,20 +3120,26 @@
       ]
     }
 
-  , "LeaderValue":
-    { "type": "object"
-    , "description": "In Ouroboros Praos, designate the leader's contribution to the Multi-Party computation used for calculating the leader schedule."
-    , "additionalProperties": false
-    , "properties":
-      { "proof": { "$ref": "#/definitions/Hash64" }
-      , "output": { "$ref": "#/definitions/Hash64" }
-      }
+  , "IssuerVrfVerificationKey":
+    { "type": "string"
+    , "description": "A key identifying a block issuer."
+    , "contentEncoding": "base64"
+    }
+
+  , "IssuerSignature":
+    { "type": "string"
+    , "description": "Signature proving a block was issued by a given issuer VRF key."
+    , "contentEncoding": "base64"
+    }
+
+  , "Language":
+    { "type": "string"
+    , "enum": [ "plutus:v1", "plutus:v2" ]
     }
 
   , "Lovelace":
     { "type": "integer"
-    , "minimum": 0
-    , "maximum": 18446744073709552000
+    , "description": "A number of lovelace, possibly large when summed up."
     }
 
   , "LovelaceDelta":
@@ -2549,6 +3147,22 @@
     , "description": "An amount, possibly negative, in Lovelace (1e6 Lovelace = 1 Ada)."
     , "minimum": -9223372036854775808
     , "maximum": 9223372036854775807
+    }
+
+  , "KesVerificationKey":
+    { "type": "string"
+    , "contentEncoding": "base64"
+    }
+
+  , "MempoolSizeAndCapacity":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "capacity", "currentSize", "numberOfTxs" ]
+    , "properties":
+      { "capacity": { "$ref": "#/definitions/UInt32" }
+      , "currentSize": { "$ref": "#/definitions/UInt32" }
+      , "numberOfTxs": { "$ref": "#/definitions/UInt32" }
+      }
     }
 
   , "Metadata":
@@ -2687,17 +3301,8 @@
         , "enum": ["neutral"]
         , "title": "neutral"
         }
-      , { "$ref": "#/definitions/Hash16" }
+      , { "$ref": "#/definitions/Digest[Blake2b]::Nonce" }
       ]
-    }
-
-  , "NonceProof":
-    { "type": "object"
-    , "additionalProperties": false
-    , "properties":
-      { "proof": { "$ref": "#/definitions/Hash64" }
-      , "output": { "$ref": "#/definitions/Hash64" }
-      }
     }
 
   , "NonMyopicMemberRewards":
@@ -2752,9 +3357,9 @@
     , "additionalProperties": false
     , "properties":
       { "count": { "$ref": "#/definitions/UInt64" }
-      , "sigma": { "$ref": "#/definitions/Hash64" }
+      , "sigma": { "$ref": "#/definitions/Signature" }
       , "kesPeriod": { "$ref": "#/definitions/UInt64" }
-      , "hotVk": { "$ref": "#/definitions/Hash64" }
+      , "hotVk": { "$ref": "#/definitions/KesVerificationKey" }
       }
     }
 
@@ -2763,6 +3368,11 @@
     , "description": "The origin of the blockchain. This point is special in the sense that it doesn't point to any existing slots, but is preceding any existing other point."
     , "title": "origin"
     , "enum": [ "origin" ]
+    }
+
+  , "OwnerStake":
+    { "type": "integer"
+    , "description": "The number of Lovelace owned by the stake pool owners. If this value is not at least as large as the 'pledgeRatio', the stake pool will not earn any rewards for the given epoch."
     }
 
   , "PointOrOrigin":
@@ -2774,11 +3384,15 @@
         , "required": [ "slot", "hash" ]
         , "properties":
           { "slot": { "$ref": "#/definitions/Slot" }
-          , "hash": { "$ref": "#/definitions/Hash16" }
+          , "hash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].header" }
           }
         }
       , { "$ref": "#/definitions/Origin" }
       ]
+    }
+
+  , "PolicyId":
+    { "$ref": "#/definitions/Digest[Blake2b]::Script"
     }
 
   , "PoolDistribution":
@@ -2791,7 +3405,7 @@
       , "required": ["stake", "vrf"]
       , "properties":
         { "stake": { "$ref": "#/definitions/Ratio" }
-        , "vrf": { "$ref": "#/definitions/Hash16" }
+        , "vrf": { "$ref": "#/definitions/Digest[Blake2b]::VrfVerificationKey" }
         }
       }
     , "examples":
@@ -2809,6 +3423,7 @@
 
   , "PoolId":
     { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a pool's verification key."
     , "contentEncoding": "bech32"
     , "pattern": "^pool1[0-9a-z]*$"
     , "examples":
@@ -2824,12 +3439,12 @@
     , "properties":
       { "owners":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/Hash16" }
+        , "items": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
         }
       , "cost": { "$ref": "#/definitions/Lovelace" }
       , "margin": { "$ref": "#/definitions/Ratio" }
       , "pledge": { "$ref": "#/definitions/Lovelace" }
-      , "vrf": { "$ref": "#/definitions/Hash16" }
+      , "vrf": { "$ref": "#/definitions/Digest[Blake2b]::VrfVerificationKey" }
       , "metadata":
         { "oneOf":
           [ { "$ref": "#/definitions/Null"}
@@ -2838,7 +3453,7 @@
             , "additionalProperties": false
             , "required": ["hash","url"]
             , "properties":
-              { "hash": { "$ref": "#/definitions/Hash16" }
+              { "hash": { "$ref": "#/definitions/Digest[Blake2b]::PoolMetadata" }
               , "url":
                 { "type": "string"
                 , "format": "uri"
@@ -3130,9 +3745,15 @@
     , "additionalProperties": false
     , "required": [ "redeemer", "executionUnits" ]
     , "properties":
-      { "redeemer": { "$ref": "#/definitions/Hash64" }
+      { "redeemer": { "$ref": "#/definitions/RedeemerData" }
       , "executionUnits": { "$ref": "#/definitions/ExUnits" }
       }
+    }
+
+  , "RedeemerData":
+    { "type": "string"
+    , "contentEncoding": "base64"
+    , "description": "Plutus data, CBOR-serialised."
     }
 
   , "RedeemerPointer":
@@ -3141,12 +3762,10 @@
     }
 
   , "RelativeTime":
-    { "type": "string"
-    , "description": "A time in seconds relative to the system start."
-    , "pattern": "^[0-9]+.[0-9]+s$"
-    , "examples":
-      [ "3441.33s"
-      ]
+    { "type": "integer"
+    , "description": "A time in seconds relative to another one (typically, system start or era start)."
+    , "minimum": 0
+    , "maximum": 18446744073709552999
     }
 
   , "Relay":
@@ -3219,10 +3838,77 @@
       ]
     }
 
+  , "RewardInfoPool":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "stake", "ownerStake", "approximatePerformance", "poolParameters" ]
+    , "properties":
+      { "stake": { "$ref": "#/definitions/Lovelace" }
+      , "ownerStake": { "$ref": "#/definitions/OwnerStake" }
+      , "approximatePerformance":
+        { "type": "number"
+        , "description": "Number of blocks produced divided by expected number of blocks (based on stake and epoch progress). Can be larger than 1.0 for pools that get lucky."
+        , "minimum": 0
+        }
+      , "poolParameters":
+        { "type": "object"
+        , "description": "Some of the pool parameters relevant for the reward calculation."
+        , "additionalProperties": false
+        , "required": [ "cost", "margin", "pledge" ]
+        , "properties":
+          { "cost": { "$ref": "#/definitions/Lovelace" }
+          , "margin": { "$ref": "#/definitions/Ratio" }
+          , "pledge": { "$ref": "#/definitions/Lovelace" }
+          }
+        }
+      }
+    }
+
   , "RewardPot":
     { "type": "string"
     , "description": "Source of rewards as defined by the protocol parameters."
     , "enum": ["reserves", "treasury"]
+    }
+
+  , "RewardsProvenance'":
+    { "type": "object"
+    , "description": "Details about how rewards are calculated for the ongoing epoch."
+    , "additionalProperties": false
+    , "required": [ "desiredNumberOfPools", "poolInfluence", "totalRewards", "activeStake", "pools" ]
+    , "properties":
+      { "desiredNumberOfPools":
+        { "type": "integer"
+        , "description": "Desired number of stake pools."
+        , "minimum": 0
+        , "maximum": 18446744073709552999
+        }
+      , "poolInfluence":
+        { "type": "string"
+        , "description": "Influence of the pool owner's pledge on rewards, as a ratio of two integers."
+        , "pattern": "^-?[0-9]+/[0-9]+$"
+        , "examples":
+          [ "2/3"
+          , "7/8"
+          ]
+        }
+      , "totalRewards":
+        { "type": "integer"
+        , "description": "Total rewards available for the given epoch."
+        , "minimum": 0
+        , "maximum": 18446744073709552999
+        }
+      , "activeStake":
+        { "type": "integer"
+        , "description": "The total amount of staked Lovelace during this epoch."
+        , "minimum": 0
+        , "maximum": 18446744073709552999
+        }
+      , "pools":
+        { "type": "object"
+        , "additionalProperties": { "$ref": "#/definitions/RewardInfoPool" }
+        , "propertyNames": { "$ref": "#/definitions/PoolId" }
+        }
+      }
     }
 
   , "RewardsProvenance":
@@ -3336,20 +4022,9 @@
       }
     }
 
-  , "UInt8":
+  , "SafeZone":
     { "type": "integer"
-    , "minimum": 0
-    , "maximum": 255
-    }
-
-  , "UInt32":
-    { "type": "integer"
-    , "minimum": 0
-    , "maximum": 4294967295
-    }
-
-  , "UInt64":
-    { "type": "integer"
+    , "description": "Number of slots from the tip of the ledger in which it is guaranteed that no hard fork can take place. This should be (at least) the number of slots in which we are guaranteed to have k blocks."
     , "minimum": 0
     , "maximum": 18446744073709552999
     }
@@ -3367,9 +4042,17 @@
       , { "type": "object"
         , "title": "Plutus"
         , "additionalProperties": false
-        , "required": [ "plutus" ]
+        , "required": [ "plutus:v1" ]
         , "properties":
-          { "plutus": { "$ref": "#/definitions/Script[Plutus]" }
+          { "plutus:v1": { "$ref": "#/definitions/Script[Plutus]" }
+          }
+        }
+      , { "type": "object"
+        , "title": "Plutus"
+        , "additionalProperties": false
+        , "required": [ "plutus:v2" ]
+        , "properties":
+          { "plutus:v2": { "$ref": "#/definitions/Script[Plutus]" }
           }
         }
       ]
@@ -3406,7 +4089,7 @@
           }
         ]
     , "anyOf":
-      [ { "$ref": "#/definitions/Hash16" }
+      [ { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
       , { "type": "object"
         , "title": "any"
         , "additionalProperties": false
@@ -3463,6 +4146,115 @@
     , "pattern": "^[A-Za-z0-9+/]*=?=?$"
     }
 
+  , "ScriptFailure":
+    { "type": "array"
+    , "description": "Errors whcih may occur when evaluating an on-chain script."
+    , "items":
+      { "oneOf":
+        [ { "$ref": "#/definitions/SubmitTxError[extraRedeemers]" }
+        , { "$ref": "#/definitions/SubmitTxError[missingRequiredDatums]" }
+        , { "$ref": "#/definitions/ScriptFailure[missingRequiredScripts]" }
+        , { "$ref": "#/definitions/ScriptFailure[validatorFailed]" }
+        , { "$ref": "#/definitions/ScriptFailure[unknownInputReferencedByRedeemer]" }
+        , { "$ref": "#/definitions/ScriptFailure[nonScriptInputReferencedByRedeemer]" }
+        , { "$ref": "#/definitions/ScriptFailure[illFormedExecutionBudget]" }
+        , { "$ref": "#/definitions/ScriptFailure[noCostModelForLanguage]" }
+        ]
+      }
+    }
+
+  , "ScriptFailure[missingRequiredScripts]":
+    { "title": "missingRequiredScripts"
+    , "description": "Missing scripts required for validating script inputs."
+    , "type": "object"
+    , "additionalProperties": false
+    , "required": [ "missingRequiredScripts" ]
+    , "properties":
+      { "missingRequiredScripts":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": [ "missing" ]
+        , "properties":
+          { "missing":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/RedeemerPointer" }
+            }
+          }
+        }
+      }
+    }
+
+  , "ScriptFailure[validatorFailed]":
+    { "title": "validatorFailed"
+    , "description": "Plutus interpreter error. Returns additional traces produced by the validator."
+    , "type": "object"
+    , "additionalProperties": false
+    , "required": [ "validatorFailed" ]
+    , "properties":
+      { "validatorFailed":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": [ "error", "traces" ]
+        , "properties":
+          { "error": { "type": "string" }
+          , "traces":
+            { "type": "array"
+            , "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+
+  , "ScriptFailure[unknownInputReferencedByRedeemer]":
+    { "title": "unknownInputReferencedByRedeemer"
+    , "description": "Non-existing input referenced by a redeemer pointer."
+    , "type": "object"
+    , "additionalProperties": false
+    , "required": [ "unknownInputReferencedByRedeemer" ]
+    , "properties":
+      { "unknownInputReferencedByRedeemer": { "$ref": "#/definitions/TxIn" }
+      }
+    }
+
+  , "ScriptFailure[nonScriptInputReferencedByRedeemer]":
+    { "title": "nonScriptInputReferencedByRedeemer"
+    , "description": "Input not locked by a Plutus referenced by a redeemer pointer."
+    , "type": "object"
+    , "additionalProperties": false
+    , "required": [ "nonScriptInputReferencedByRedeemer" ]
+    , "properties":
+      { "nonScriptInputReferencedByRedeemer": { "$ref": "#/definitions/TxIn" }
+      }
+    }
+
+  , "ScriptFailure[illFormedExecutionBudget]":
+    { "title": "illFormedExecutionBudget"
+    , "description": "Invalid execution budget set for a redeemer. In principle, cannot happen in the context of Ogmios."
+    , "type": "object"
+    , "additionalProperties": false
+    , "required": [ "illFormedExecutionBudget" ]
+    , "properties":
+      { "illFormedExecutionBudget":
+        { "oneOf":
+          [ { "$ref": "#/definitions/ExUnits" }
+          , { "$ref": "#/definitions/Null" }
+          ]
+        }
+      }
+    }
+
+  , "ScriptFailure[noCostModelForLanguage]":
+    { "title": "noCostModelForLanguage"
+    , "description": "Input locked by a script which language has no cost model in current protocol parameters. In principle, cannot happen in the context of Ogmios."
+    , "type": "object"
+    , "additionalProperties": false
+    , "required": [ "noCostModelForLanguage" ]
+    , "properties":
+      { "noCostModelForLanguage": { "$ref": "#/definitions/Language" }
+      }
+    }
+
   , "ScriptPurpose":
     { "oneOf":
       [ { "title": "spend"
@@ -3478,7 +4270,7 @@
         , "additionalProperties": false
         , "required": [ "mint" ]
         , "properties":
-          { "mint": { "$ref": "#/definitions/Hash16" }
+          { "mint": { "$ref": "#/definitions/PolicyId" }
           }
         }
       , { "title": "certificate"
@@ -3502,14 +4294,20 @@
 
   , "Signature":
     { "type": "string"
+    , "description": "A signature coming from an Ed25519 or Ed25519-BIP32 signing key."
     , "contentEncoding": "base64"
-    , "pattern": "^[A-Za-z0-9+/]*=?=?$"
     }
 
   , "Slot":
-    { "description": "An absolute slot number."
-    , "type": "integer"
+    { "type": "integer"
+    , "description": "An absolute slot number."
     , "minimum": 0
+    , "maximum": 18446744073709552000
+    }
+
+  , "SlotLength":
+    { "type": "integer"
+    , "description": "A slot length, in seconds."
     , "maximum": 18446744073709552000
     }
 
@@ -3538,7 +4336,8 @@
     { "type": "array"
     , "items":
       { "oneOf":
-        [ { "$ref": "#/definitions/SubmitTxError[invalidWitnesses]" }
+        [ { "$ref": "#/definitions/EraMismatch" }
+        , { "$ref": "#/definitions/SubmitTxError[invalidWitnesses]" }
         , { "$ref": "#/definitions/SubmitTxError[missingVkWitnesses]" }
         , { "$ref": "#/definitions/SubmitTxError[missingScriptWitnesses]" }
         , { "$ref": "#/definitions/SubmitTxError[scriptWitnessNotValidating]" }
@@ -3599,6 +4398,7 @@
         , { "$ref": "#/definitions/SubmitTxError[outsideForecast]" }
         , { "$ref": "#/definitions/SubmitTxError[validationTagMismatch]" }
         , { "$ref": "#/definitions/SubmitTxError[collectErrors]" }
+        , { "$ref": "#/definitions/SubmitTxError[extraScriptWitnesses]" }
         ]
       }
     }
@@ -3611,7 +4411,7 @@
     , "properties":
       { "invalidWitnesses":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/Hash16" }
+        , "items": { "$ref": "#/definitions/VerificationKey" }
         }
       }
     }
@@ -3624,7 +4424,7 @@
     , "properties":
       { "missingVkWitnesses":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/Hash16" }
+        , "items": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
         }
       }
     }
@@ -3637,7 +4437,7 @@
     , "properties":
       { "missingScriptWitnesses":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/Hash16" }
+        , "items": { "$ref": "#/definitions/Digest[Blake2b]::Script" }
         }
       }
     }
@@ -3650,7 +4450,7 @@
     , "properties":
       { "scriptWitnessNotValidating":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/Hash16" }
+        , "items": { "$ref": "#/definitions/Digest[Blake2b]::Script" }
         }
       }
     }
@@ -3663,7 +4463,7 @@
     , "properties":
       { "insufficientGenesisSignatures":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/Hash16" }
+        , "items": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
         }
       }
     }
@@ -3674,7 +4474,7 @@
     , "additionalProperties": false
     , "required": [ "missingTxMetadata" ]
     , "properties":
-      { "missingTxMetadata": { "$ref": "#/definitions/Hash16" }
+      { "missingTxMetadata": { "$ref": "#/definitions/Digest[Blake2b]::AuxiliaryDataBody" }
       }
     }
 
@@ -3684,7 +4484,7 @@
     , "additionalProperties": false
     , "required": [ "missingTxMetadataHash" ]
     , "properties":
-      { "missingTxMetadataHash": { "$ref": "#/definitions/Hash16" }
+      { "missingTxMetadataHash": { "$ref": "#/definitions/Digest[Blake2b]::AuxiliaryDataBody" }
       }
     }
 
@@ -3699,8 +4499,8 @@
         , "additionalProperties": false
         , "required": [ "includedHash", "expectedHash" ]
         , "properties":
-          { "includedHash": { "$ref": "#/definitions/Hash16" }
-          , "expectedHash": { "$ref": "#/definitions/Hash16" }
+          { "includedHash": { "$ref": "#/definitions/Digest[Blake2b]::AuxiliaryDataBody" }
+          , "expectedHash": { "$ref": "#/definitions/Digest[Blake2b]::AuxiliaryDataBody" }
           }
         }
       }
@@ -3776,15 +4576,27 @@
     }
 
   , "SubmitTxError[missingAtLeastOneInputUtxo]":
-    { "type": "string"
+    { "type": "object"
     , "title": "missingAtLeastOneInputUtxo"
-    , "enum": [ "missingAtLeastOneInputUtxo" ]
+    , "additionalProperties": false
+    , "required": [ "missingAtLeastOneInputUtxo" ]
+    , "properties":
+      { "missingAtLeastOneInputUtxo":
+        { "type": "null"
+        }
+      }
     }
 
   , "SubmitTxError[invalidMetadata]":
-    { "type": "string"
+    { "type": "object"
     , "title": "invalidMetadata"
-    , "enum": [ "invalidMetadata" ]
+    , "additionalProperties": false
+    , "required": [ "invalidMetadata" ]
+    , "properties":
+      { "invalidMetadata":
+        { "type": "null"
+        }
+      }
     }
 
   , "SubmitTxError[feeTooSmall]":
@@ -3896,10 +4708,16 @@
     }
 
   , "SubmitTxError[triesToForgeAda]":
-    { "type": "string"
+    { "type": "object"
     , "title": "triesToForgeAda"
+    , "additionalProperties": false
+    , "required": [ "triesToForgeAda" ]
+    , "properties":
+      { "triesToForgeAda":
+        { "type": "null"
+        }
+      }
     , "description": "Only since Mary."
-    , "enum": [ "triesToForgeAda" ]
     }
 
   , "SubmitTxError[delegateNotRegistered]":
@@ -3967,7 +4785,7 @@
     , "additionalProperties": false
     , "required": [ "stakeKeyAlreadyRegistered" ]
     , "properties":
-      { "stakeKeyAlreadyRegistered": { "$ref": "#/definitions/Hash16" }
+      { "stakeKeyAlreadyRegistered": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
       }
     }
 
@@ -4012,14 +4830,20 @@
     , "additionalProperties": false
     , "required": [ "stakeKeyNotRegistered" ]
     , "properties":
-      { "stakeKeyNotRegistered": { "$ref": "#/definitions/Hash16" }
+      { "stakeKeyNotRegistered": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
       }
     }
 
   , "SubmitTxError[rewardAccountNotExisting]":
-    { "type": "string"
+    { "type": "object"
     , "title": "rewardAccountNotExisting"
-    , "enum": [ "rewardAccountNotExisting" ]
+    , "additionalProperties": false
+    , "required": [ "rewardAccountNotExisting" ]
+    , "properties":
+      { "rewardAccountNotExisting":
+        { "type": "null"
+        }
+      }
     }
 
   , "SubmitTxError[rewardAccountNotEmpty]":
@@ -4040,9 +4864,15 @@
     }
 
   , "SubmitTxError[wrongCertificateType]":
-    { "type": "string"
+    { "type": "object"
     , "title": "wrongCertificateType"
-    , "enum": [ "wrongCertificateType" ]
+    , "additionalProperties": false
+    , "required": [ "wrongCertificateType" ]
+    , "properties":
+      { "wrongCertificateType":
+        { "type": "null"
+        }
+      }
     }
 
   , "SubmitTxError[unknownGenesisKey]":
@@ -4051,7 +4881,7 @@
     , "additionalProperties": false
     , "required": [ "unknownGenesisKey" ]
     , "properties":
-      { "unknownGenesisKey": { "$ref": "#/definitions/Hash16" }
+      { "unknownGenesisKey": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
       }
     }
 
@@ -4061,7 +4891,7 @@
     , "additionalProperties": false
     , "required": [ "alreadyDelegating" ]
     , "properties":
-      { "alreadyDelegating": { "$ref": "#/definitions/Hash16" }
+      { "alreadyDelegating": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
       }
     }
 
@@ -4103,21 +4933,39 @@
     }
 
   , "SubmitTxError[mirTransferNotCurrentlyAllowed]":
-    { "type": "string"
+    { "type": "object"
     , "title": "mirTransferNotCurrentlyAllowed"
-    , "enum": [ "mirTransferNotCurrentlyAllowed" ]
+    , "additionalProperties": false
+    , "required": [ "mirTransferNotCurrentlyAllowed" ]
+    , "properties":
+      { "mirTransferNotCurrentlyAllowed":
+        { "type": "null"
+        }
+      }
     }
 
   , "SubmitTxError[mirNegativeTransferNotCurrentlyAllowed]":
-    { "type": "string"
+    { "type": "object"
     , "title": "mirNegativeTransferNotCurrentlyAllowed"
-    , "enum": [ "mirNegativeTransferNotCurrentlyAllowed" ]
+    , "additionalProperties": false
+    , "required": [ "mirNegativeTransferNotCurrentlyAllowed" ]
+    , "properties":
+      { "mirNegativeTransferNotCurrentlyAllowed":
+        { "type": "null"
+        }
+      }
     }
 
   , "SubmitTxError[mirProducesNegativeUpdate]":
-    { "type": "string"
+    { "type": "object"
     , "title": "mirProducesNegativeUpdate"
-    , "enum": [ "mirProducesNegativeUpdate" ]
+    , "additionalProperties": false
+    , "required": [ "mirProducesNegativeUpdate" ]
+    , "properties":
+      { "mirProducesNegativeUpdate":
+        { "type": "null"
+        }
+      }
     }
 
   , "SubmitTxError[duplicateGenesisVrf]":
@@ -4126,7 +4974,7 @@
     , "additionalProperties": false
     , "required": [ "duplicateGenesisVrf" ]
     , "properties":
-      { "duplicateGenesisVrf": { "$ref": "#/definitions/Hash16" }
+      { "duplicateGenesisVrf": { "$ref": "#/definitions/Digest[Blake2b]::VrfVerificationKey" }
       }
     }
 
@@ -4143,11 +4991,11 @@
         , "properties":
           { "currentlyVoting":
             { "type": "array"
-            , "items": { "$ref": "#/definitions/Hash16" }
+            , "items": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
             }
           , "shouldBeVoting":
             { "type": "array"
-            , "items": { "$ref": "#/definitions/Hash16" }
+            , "items": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
             }
           }
         }
@@ -4199,7 +5047,7 @@
             , "items":
               { "type": "object"
               , "additionalProperties": { "$ref": "#/definitions/ScriptPurpose" }
-              , "propertyNames": { "$ref": "#/definitions/Hash16" }
+              , "propertyNames": { "$ref": "#/definitions/Digest[Blake2b]::Script" }
               }
             }
           }
@@ -4216,15 +5064,15 @@
       { "missingRequiredDatums":
         { "type": "object"
         , "additionalProperties": false
-        , "required": [ "provided", "missing" ]
+        , "required": [ "missing" ]
         , "properties":
           { "provided":
             { "type": "array"
-            , "items": { "$ref": "#/definitions/Hash16" }
+            , "items": { "$ref": "#/definitions/Digest[Blake2b]::Datum" }
             }
           , "missing":
             { "type": "array"
-            , "items": { "$ref": "#/definitions/Hash16" }
+            , "items": { "$ref": "#/definitions/Digest[Blake2b]::Datum" }
             }
           }
         }
@@ -4244,11 +5092,11 @@
         , "properties":
           { "nonSpendable":
             { "type": "array"
-            , "items": { "$ref": "#/definitions/Hash16" }
+            , "items": { "$ref": "#/definitions/Digest[Blake2b]::Datum" }
             }
           , "acceptable":
             { "type": "array"
-            , "items": { "$ref": "#/definitions/Hash16" }
+            , "items": { "$ref": "#/definitions/Digest[Blake2b]::Datum" }
             }
           }
         }
@@ -4268,13 +5116,13 @@
         , "properties":
           { "provided":
             { "oneOf":
-              [ { "$ref": "#/definitions/Hash16" }
+              [ { "$ref": "#/definitions/Digest[Blake2b]::ScriptIntegrity" }
               , { "$ref": "#/definitions/Null"}
               ]
             }
           , "inferredFromParameters":
             { "oneOf":
-              [ { "$ref": "#/definitions/Hash16" }
+              [ { "$ref": "#/definitions/Digest[Blake2b]::ScriptIntegrity" }
               , { "$ref": "#/definitions/Null"}
               ]
             }
@@ -4291,7 +5139,7 @@
     , "properties":
       { "missingRequiredSignatures":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/Hash16" }
+        , "items": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
         }
       }
     }
@@ -4336,9 +5184,16 @@
     }
 
   , "SubmitTxError[missingCollateralInputs]":
-    { "type": "string"
+    { "type": "object"
     , "title": "missingCollateralInputs"
-    , "enum": [ "missingCollateralInputs" ]
+    , "additionalProperties": false
+    , "required": [ "missingCollateralInputs" ]
+    , "properties":
+      { "missingCollateralInputs":
+        { "type": "null"
+        }
+      }
+    , "description": "Only since Alonzo."
     }
 
   , "SubmitTxError[collateralTooSmall]":
@@ -4426,9 +5281,16 @@
     }
 
   , "SubmitTxError[validationTagMismatch]":
-    { "type": "string"
+    { "type": "object"
     , "title": "validationTagMismatch"
-    , "enum": [ "validationTagMismatch" ]
+    , "additionalProperties": false
+    , "required": [ "validationTagMismatch" ]
+    , "properties":
+      { "validationTagMismatch":
+        { "type": "null"
+        }
+      }
+    , "description": "Only since Alonzo."
     }
 
   , "SubmitTxError[collectErrors]":
@@ -4443,6 +5305,19 @@
       }
     }
 
+  , "SubmitTxError[extraScriptWitnesses]":
+    { "type": "object"
+    , "title": "extraScriptWitnesses"
+    , "additionalProperties": false
+    , "required": ["extraScriptWitnesses"]
+    , "properties":
+      { "extraScriptWitnesses":
+        { "type": "array"
+        , "items": { "$ref": "#/definitions/Digest[Blake2b]::Script" }
+        }
+      }
+    }
+
   , "TipOrOrigin":
     { "oneOf":
       [ { "type": "object"
@@ -4451,7 +5326,7 @@
         , "required": [ "slot", "hash", "blockNo" ]
         , "properties":
           { "slot": { "$ref": "#/definitions/Slot" }
-          , "hash": { "$ref": "#/definitions/Hash16" }
+          , "hash": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].header" }
           , "blockNo": { "$ref": "#/definitions/BlockNo" }
           }
         }
@@ -4459,18 +5334,349 @@
       ]
     }
 
-  , "Tx":
+  , "Tx[Byron]":
     { "type": "object"
     , "additionalProperties": false
-    , "required": [ "inputs", "outputs" ]
+    , "required": [ "id", "body", "witness", "raw" ]
+    , "$omitted-if-compact": ["witness", "raw"]
     , "properties":
-      { "inputs":
-        { "type": "array"
-        , "items": { "$ref": "#/definitions/TxIn" }
+      { "id": { "$ref": "#/definitions/TxId" }
+      , "body":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": [ "inputs", "outputs" ]
+        , "properties":
+          { "inputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxIn" }
+            }
+          , "outputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxOut" }
+            }
+          }
         }
-      , "outputs":
+      , "witness":
         { "type": "array"
-        , "items": { "$ref": "#/definitions/TxOut" }
+        , "items": { "$ref": "#/definitions/TxWitness" }
+        }
+      , "raw":
+        { "type": "string"
+        , "contentEncoding": "base64"
+        , "description": "The raw serialized transaction, as found on-chain."
+        }
+      }
+    }
+
+  , "Tx[Shelley]":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "id", "body", "witness", "metadata", "raw" ]
+    , "$omitted-if-compact": ["witness", "raw"]
+    , "properties":
+      { "id": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].body" }
+      , "body":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": ["inputs","outputs","certificates","withdrawals","fee","timeToLive","update"]
+        , "properties":
+          { "inputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxIn" }
+            }
+          , "outputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxOut" }
+            }
+          , "certificates":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/Certificate" }
+            }
+          , "withdrawals": { "$ref": "#/definitions/Withdrawals" }
+          , "fee": { "$ref": "#/definitions/Lovelace" }
+          , "timeToLive": { "$ref": "#/definitions/Slot" }
+          , "update": { "$ref": "#/definitions/Update[Shelley]" }
+          }
+        }
+      , "witness":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": ["signatures","scripts","bootstrap"]
+        , "properties":
+          { "signatures":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Signature" }
+            }
+          , "scripts":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Script" }
+            }
+          , "bootstrap":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/BootstrapWitness" }
+            }
+          }
+        }
+      , "metadata":
+        { "oneOf":
+          [ { "$ref": "#/definitions/AuxiliaryData" }
+          , { "$ref": "#/definitions/Null"}
+          ]
+        }
+      , "raw":
+        { "type": "string"
+        , "contentEncoding": "base64"
+        , "description": "The raw serialized transaction, as found on-chain."
+        }
+      }
+    }
+
+  , "Tx[Allegra]":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "id", "body", "witness", "metadata", "raw" ]
+    , "$omitted-if-compact": ["witness", "raw"]
+    , "properties":
+      { "id": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].body" }
+      , "body":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": ["inputs","outputs","certificates","withdrawals","fee","validityInterval","update"]
+        , "properties":
+          { "inputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxIn" }
+            }
+          , "outputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxOut" }
+            }
+          , "certificates":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/Certificate" }
+            }
+          , "withdrawals": { "$ref": "#/definitions/Withdrawals" }
+          , "fee": { "$ref": "#/definitions/Lovelace" }
+          , "validityInterval": { "$ref": "#/definitions/ValidityInterval" }
+          , "update": { "$ref": "#/definitions/Update[Shelley]" }
+          }
+        }
+      , "witness":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": ["signatures","scripts","bootstrap"]
+        , "properties":
+          { "signatures":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Signature" }
+            }
+          , "scripts":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Script" }
+            }
+          , "bootstrap":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/BootstrapWitness" }
+            }
+          }
+        }
+      , "metadata":
+        { "oneOf":
+          [ { "$ref": "#/definitions/AuxiliaryData" }
+          , { "$ref": "#/definitions/Null"}
+          ]
+        }
+      , "raw":
+        { "type": "string"
+        , "contentEncoding": "base64"
+        , "description": "The raw serialized transaction, as found on-chain."
+        }
+      }
+    }
+
+  , "Tx[Mary]":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "id", "body", "witness", "metadata", "raw" ]
+    , "$omitted-if-compact": ["witness", "raw"]
+    , "properties":
+      { "id": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].body" }
+      , "body":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": ["inputs","outputs","certificates","withdrawals","fee","validityInterval","mint","update"]
+        , "properties":
+          { "inputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxIn" }
+            }
+          , "outputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxOut" }
+            }
+          , "certificates":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/Certificate" }
+            }
+          , "withdrawals": { "$ref": "#/definitions/Withdrawals" }
+          , "fee": { "$ref": "#/definitions/Lovelace" }
+          , "validityInterval": { "$ref": "#/definitions/ValidityInterval" }
+          , "update": { "$ref": "#/definitions/Update[Shelley]" }
+          , "mint": { "$ref": "#/definitions/Value" }
+          }
+        }
+      , "witness":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": ["signatures","scripts","bootstrap"]
+        , "properties":
+          { "signatures":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Signature" }
+            }
+          , "scripts":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Script" }
+            }
+          , "bootstrap":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/BootstrapWitness" }
+            }
+          }
+        }
+      , "metadata":
+        { "oneOf":
+          [ { "$ref": "#/definitions/AuxiliaryData" }
+          , { "$ref": "#/definitions/Null"}
+          ]
+        }
+      , "raw":
+        { "type": "string"
+        , "contentEncoding": "base64"
+        , "description": "The raw serialized transaction, as found on-chain."
+        }
+      }
+    }
+
+  , "Tx[Alonzo]":
+    { "type": "object"
+    , "additionalProperties": false
+    , "required": [ "id", "body", "witness", "metadata", "inputSource", "raw" ]
+    , "$omitted-if-compact": ["witness", "raw"]
+    , "properties":
+      { "id": { "$ref": "#/definitions/Digest[Blake2b]::Block[*].body" }
+      , "inputSource":
+        { "type": "string"
+        , "enum":
+          [ "inputs"
+          , "collaterals"
+          ]
+        }
+      , "body":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required":
+          [ "inputs", "collaterals", "outputs", "certificates"
+          , "withdrawals", "fee", "validityInterval", "update", "mint"
+          , "network", "scriptIntegrityHash", "requiredExtraSignatures"
+          ]
+        , "properties":
+          { "inputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxIn" }
+            }
+          , "collaterals":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxIn" }
+            }
+          , "outputs":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/TxOut" }
+            }
+          , "certificates":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/Certificate" }
+            }
+          , "withdrawals":
+            { "$ref": "#/definitions/Withdrawals"
+            }
+          , "fee":
+            { "$ref": "#/definitions/Lovelace"
+            }
+          , "validityInterval":
+            { "$ref": "#/definitions/ValidityInterval"
+            }
+          , "update":
+            { "$ref": "#/definitions/Update[Alonzo]"
+            }
+          , "mint":
+            { "$ref": "#/definitions/Value"
+            }
+          , "network":
+            { "oneOf":
+              [ { "$ref": "#/definitions/Network" }
+              , { "$ref": "#/definitions/Null"}
+              ]
+            }
+          , "scriptIntegrityHash":
+            { "oneOf":
+              [ { "$ref": "#/definitions/Digest[Blake2b]::ScriptIntegrity" }
+              , { "$ref": "#/definitions/Null"}
+              ]
+            }
+          , "requiredExtraSignatures":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
+            }
+          }
+        }
+      , "witness":
+        { "type": "object"
+        , "additionalProperties": false
+        , "required": ["signatures","scripts","bootstrap", "datums", "redeemers"]
+        , "properties":
+          { "signatures":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Signature" }
+            }
+          , "scripts":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Script" }
+            }
+          , "bootstrap":
+            { "type": "array"
+            , "items": { "$ref": "#/definitions/BootstrapWitness" }
+            }
+          , "datums":
+            { "type": "object"
+            , "propertyNames": { "contentEncoding": "base16", "pattern": "^[0-9a-f]+$" }
+            , "additionalProperties": { "$ref": "#/definitions/Datum" }
+            }
+          , "redeemers":
+            { "type": "object"
+            , "propertyNames": { "$ref": "#/definitions/RedeemerPointer" }
+            , "additionalProperties": { "$ref": "#/definitions/Redeemer" }
+            }
+          }
+        }
+      , "metadata":
+        { "oneOf":
+          [ { "$ref": "#/definitions/AuxiliaryData" }
+          , { "$ref": "#/definitions/Null"}
+          ]
+        }
+      , "raw":
+        { "type": "string"
+        , "contentEncoding": "base64"
+        , "description": "The raw serialized transaction, as found on-chain."
         }
       }
     }
@@ -4485,12 +5691,20 @@
       }
     }
 
+  , "TxId":
+    { "type": "string"
+    , "description": "A Blake2b 32-byte digest of a transaction body, CBOR-encoded."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
+
   , "TxIn":
     { "type": "object"
     , "additionalProperties": false
     , "required": [ "txId", "index" ]
     , "properties":
-      { "txId": { "$ref": "#/definitions/Hash16" }
+      { "txId": { "$ref": "#/definitions/TxId" }
       , "index":
         { "$ref": "#/definitions/UInt32"
         , "minimum": 0
@@ -4538,7 +5752,7 @@
       , "value": { "$ref": "#/definitions/Value" }
       , "datum":
         { "oneOf":
-          [ { "$ref": "#/definitions/Hash16" }
+          [ { "$ref": "#/definitions/Digest[Blake2b]::Datum" }
           , { "$ref": "#/definitions/Null"}
           ]
         }
@@ -4557,8 +5771,8 @@
             , "additionalProperties": false
             , "required": [ "key", "signature" ]
             , "properties":
-              { "key": { "$ref": "#/definitions/Hash16" }
-              , "signature": { "$ref": "#/definitions/Hash64" }
+              { "key": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
+              , "signature": { "$ref": "#/definitions/Signature" }
               }
             }
           }
@@ -4572,13 +5786,31 @@
             , "additionalProperties": false
             , "required": [ "key", "signature" ]
             , "properties":
-              { "key": { "$ref": "#/definitions/Hash64" }
-              , "signature": { "$ref": "#/definitions/Hash64" }
+              { "key": { "$ref": "#/definitions/VerificationKey" }
+              , "signature": { "$ref": "#/definitions/Signature" }
               }
             }
           }
         }
       ]
+    }
+
+  , "UInt8":
+    { "type": "integer"
+    , "minimum": 0
+    , "maximum": 255
+    }
+
+  , "UInt32":
+    { "type": "integer"
+    , "minimum": 0
+    , "maximum": 4294967295
+    }
+
+  , "UInt64":
+    { "type": "integer"
+    , "minimum": 0
+    , "maximum": 18446744073709552999
     }
 
   , "Update[Shelley]":
@@ -4620,6 +5852,7 @@
   , "UtcTime":
     { "type": "string"
     , "format": "date-time"
+    , "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.?[0-9]*Z?"
     }
 
   , "Utxo":
@@ -4676,9 +5909,9 @@
     , "additionalProperties": false
     , "required": [ "voterVk", "proposalId", "signature" ]
     , "properties":
-      { "voterVk": { "$ref": "#/definitions/Hash64" }
-      , "proposalId": { "$ref": "#/definitions/Hash16" }
-      , "signature": { "$ref": "#/definitions/Hash64" }
+      { "voterVk": { "$ref": "#/definitions/VerificationKey" }
+      , "proposalId": { "$ref": "#/definitions/Digest[Blake2b]::VerificationKey" }
+      , "signature": { "$ref": "#/definitions/Signature" }
       }
     }
 
@@ -4687,11 +5920,28 @@
     , "enum": [ "voteForThisEpoch", "voteForNextEpoch" ]
     }
 
+  , "VrfProof":
+    { "type": "string"
+    , "contentEncoding": "base64"
+    }
+
+  , "VrfOutput":
+    { "type": "string"
+    , "contentEncoding": "base64"
+    }
+
   , "Withdrawals":
     { "type": "object"
     , "additionalProperties": { "$ref": "#/definitions/Lovelace" }
     , "propertyNames": "^stake(_test)?1[0-9a-z]+$"
     }
 
+  , "VerificationKey":
+    { "type": "string"
+    , "description": "An Ed25519 verification key."
+    , "contentEncoding": "base16"
+    , "minLength": 64
+    , "maxLength": 64
+    }
   }
 }
