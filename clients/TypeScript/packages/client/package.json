@@ -1,5 +1,5 @@
 {
-  "name": "@cardano-ogmios/client",
+  "name": "@tango-crypto/client",
   "version": "5.2.0",
   "description": "TypeScript client library for Cardano Ogmios",
   "engines": {
@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cardanosolutions/ogmios.git",
+    "url": "https://github.com/tango-crypto/ogmios.git",
     "directory": "clients/TypeScript/packages/client"
   },
   "author": "Rhys Bartels-Waller",

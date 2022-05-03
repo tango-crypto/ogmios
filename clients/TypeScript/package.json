@@ -1,5 +1,5 @@
 {
-  "name": "cardano-ogmios",
+  "name": "tango-crypto",
   "version": "5.2.0",
   "private": true,
   "description": "TypeScript monorepo with client libraries for Cardano Ogmios",
@@ -12,7 +12,7 @@
     "packages/repl"
   ],
   "main": "dist/index.js",
-  "repository": "https://github.com/cardanosolutions/ogmios",
+  "repository": "https://github.com/tango-crypto/ogmios",
   "author": "Rhys Bartels-Waller",
   "license": "MPL-2.0",
   "scripts": {
