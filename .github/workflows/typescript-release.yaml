@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - tx-submission-warning
+      - localTxMonitor
 jobs:
   build:
     runs-on: ubuntu-latest
