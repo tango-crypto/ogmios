@@ -1,0 +1,30 @@
+name:  build and deploy
+on:
+  push:
+    branches:
+      - tx-submission-warning
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/TypeScript
+    steps:
+      - uses: actions/checkout@v1
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - name: Install
+        run: yarn install
+      - name: Build
+        run: yarn build
+      # - name: Run tests
+      #   run: npm test
+      - name: Package and publish
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.PACKAGES_PAT }}
+          registry: https://npm.pkg.github.com/
+          package: clients/TypeScript/packages/client/package.json
+          check-version: true

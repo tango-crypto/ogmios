@@ -12,7 +12,7 @@
     "packages/repl"
   ],
   "main": "dist/index.js",
-  "repository": "https://github.com/cardanosolutions/ogmios",
+  "repository": "https://github.com/tango-crypto/ogmios",
   "author": "Rhys Bartels-Waller",
   "license": "MPL-2.0",
   "scripts": {
@@ -57,5 +57,9 @@
     "ts-jest": "^26.5.3",
     "typedoc": "^0.21.4",
     "typescript": "^4.2.3"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com/"
   }
 }

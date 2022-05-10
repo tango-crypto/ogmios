@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cardanosolutions/ogmios.git",
+    "url": "https://github.com/tango-crypto/ogmios.git",
     "directory": "clients/TypeScript/packages/client"
   },
   "author": "Rhys Bartels-Waller",
@@ -55,7 +55,6 @@
   "dependencies": {
     "@cardano-ogmios/schema": "5.3.0",
     "@cardanosolutions/json-bigint": "^1.0.0",
-    "@types/json-bigint": "^1.0.1",
     "cross-fetch": "^3.1.4",
     "fastq": "^1.11.0",
     "isomorphic-ws": "^4.0.1",
