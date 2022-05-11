@@ -1,6 +1,6 @@
 {
   "name": "@tango-crypto/client",
-  "version": "5.3.0",
+  "version": "5.3.1",
   "description": "TypeScript client library for Cardano Ogmios",
   "engines": {
     "node": ">=14"
